@@ -25,8 +25,8 @@ jobs:
 
       - name: Run Sync Script
         env:
-          HR_EMAIL: ${{ secrets.HR_EMAIL }}
-          HR_PASSWORD: ${{ secrets.HR_PASSWORD }}
+          HR_EMAIL: ${{ secrets.HR_USERNAME }}
+          HR_PASSWORD: ${{ secrets.HR_COOKIE }}
         run: |
           python .github/scripts/fetch_and_commit.py
 

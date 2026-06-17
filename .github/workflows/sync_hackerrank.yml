@@ -1,0 +1,6 @@
+      - name: Run Sync Script
+        env:
+          HR_EMAIL: ${{ secrets.HR_EMAIL }}
+          HR_PASSWORD: ${{ secrets.HR_PASSWORD }}
+        run: |
+          python .github/scripts/fetch_and_commit.py

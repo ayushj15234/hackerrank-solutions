@@ -3,17 +3,17 @@ import sys
 import time
 import requests
 
-# Read configurations from GitHub Secrets
+# Read raw configurations from GitHub Secrets
 USERNAME = os.environ.get("HR_USERNAME")
-COOKIE = os.environ.get("HR_COOKIE")
+SESSION_TOKEN = os.environ.get("HR_COOKIE")
 
-if not USERNAME or not COOKIE:
+if not USERNAME or not SESSION_TOKEN:
     print("Error: HR_USERNAME or HR_COOKIE environment variables are missing.")
     sys.exit(1)
 
-# Clean up any accidental wrapping quotes around variables from GitHub secrets
+# Clean up variables to ensure no hidden characters break the code
 USERNAME = USERNAME.strip().replace('"', '').replace("'", "")
-COOKIE = COOKIE.strip().replace('"', '').replace("'", "")
+SESSION_TOKEN = SESSION_TOKEN.strip().replace('"', '').replace("'", "")
 
 # Mapping HackerRank language strings to file extensions
 EXTENSION_MAP = {
@@ -22,29 +22,23 @@ EXTENSION_MAP = {
     "ruby": "rb", "swift": "swift", "go": "go", "sql": "sql"
 }
 
-# Create a clean session with standard headers only (No dynamic host injection)
+# Create session with browser spoofing
 session = requests.Session()
 session.headers.update({
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "accept": "application/json"
 })
 
-# Pass the cookie explicitly through the cookie Jar instead of header string injection
-cookie_dict = {}
-for item in COOKIE.split(";"):
-    if "=" in item:
-        key, value = item.strip().split("=", 1)
-        cookie_dict[key] = value
-
-session.cookies.update(cookie_dict)
+# Explicitly assign only the session token to the cookie jar
+session.cookies.set("_hr_session", SESSION_TOKEN, domain="www.hackerrank.com")
 
 def fetch_submissions(username):
     all_submissions = []
     limit, offset, has_more = 20, 0, True
-    print(f"Directly accessing profile submissions for user handle...")
+    print("Connecting securely to HackerRank profile data...")
 
     while has_more:
-        # Explicitly hardcoded URL string to prevent any accidental variable appending
+        # Strictly structured path formatting
         url = f"https://hackerrank.com{username}/submissions"
         params = {"offset": offset, "limit": limit}
         
@@ -61,7 +55,7 @@ def fetch_submissions(username):
         try:
             data = response.json()
         except Exception:
-            print("Failed to parse JSON response. Your session cookie might have expired.")
+            print("Failed to parse response. Your session token might be invalid or expired.")
             break
 
         submissions = data.get("models", [])

@@ -11,6 +11,10 @@ if not USERNAME or not COOKIE:
     print("Error: HR_USERNAME or HR_COOKIE environment variables are missing.")
     sys.exit(1)
 
+# Clean up any accidental wrapping quotes around variables from GitHub secrets
+USERNAME = USERNAME.strip().replace('"', '').replace("'", "")
+COOKIE = COOKIE.strip().replace('"', '').replace("'", "")
+
 # Mapping HackerRank language strings to file extensions
 EXTENSION_MAP = {
     "python": "py", "python3": "py", "cpp": "cpp", "cpp14": "cpp",
@@ -18,32 +22,46 @@ EXTENSION_MAP = {
     "ruby": "rb", "swift": "swift", "go": "go", "sql": "sql"
 }
 
-# Create a session and attach the browser cookie directly
+# Create a clean session with standard headers only (No dynamic host injection)
 session = requests.Session()
 session.headers.update({
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "accept": "application/json",
-    "cookie": COOKIE
+    "accept": "application/json"
 })
+
+# Pass the cookie explicitly through the cookie Jar instead of header string injection
+cookie_dict = {}
+for item in COOKIE.split(";"):
+    if "=" in item:
+        key, value = item.strip().split("=", 1)
+        cookie_dict[key] = value
+
+session.cookies.update(cookie_dict)
 
 def fetch_submissions(username):
     all_submissions = []
     limit, offset, has_more = 20, 0, True
-    print(f"Directly accessing profile submissions for: {username}...")
+    print(f"Directly accessing profile submissions for user handle...")
 
     while has_more:
-        url = f"https://hackerrank.com{username}/submissions?offset={offset}&limit={limit}"
-        response = session.get(url)
+        # Explicitly hardcoded URL string to prevent any accidental variable appending
+        url = f"https://hackerrank.com{username}/submissions"
+        params = {"offset": offset, "limit": limit}
+        
+        try:
+            response = session.get(url, params=params, timeout=15)
+        except Exception as e:
+            print(f"Network request connection error: {e}")
+            break
         
         if response.status_code != 200:
             print(f"Failed to fetch data at offset {offset}. Status code: {response.status_code}")
-            print("This usually means your HR_COOKIE has expired or is invalid.")
             break
             
         try:
             data = response.json()
-        except Exception as e:
-            print("Failed to parse JSON response. The cookie might be blocked.")
+        except Exception:
+            print("Failed to parse JSON response. Your session cookie might have expired.")
             break
 
         submissions = data.get("models", [])
@@ -58,7 +76,7 @@ def fetch_submissions(username):
     return all_submissions
 
 def save_submissions_as_files(submissions):
-    print(f"Processing {len(submissions)} submissions for accepted code...")
+    print(f"Processing {len(submissions)} submissions...")
     saved_count = 0
     
     for sub in submissions:
@@ -85,7 +103,7 @@ def save_submissions_as_files(submissions):
                 print(f"Added new solution: {full_path}")
                 saved_count += 1
                 
-    print(f"Saved {saved_count} new unique solutions to repository folders.")
+    print(f"Saved {saved_count} new solutions to your repository.")
 
 if __name__ == "__main__":
     submissions = fetch_submissions(USERNAME)
@@ -93,5 +111,5 @@ if __name__ == "__main__":
         save_submissions_as_files(submissions)
         print("Sync complete.")
     else:
-        print("No submissions found. Verify your username and cookie.")
+        print("No submissions retrieved.")
         sys.exit(1)
